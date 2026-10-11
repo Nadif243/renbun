@@ -150,7 +150,6 @@ func OpenVault(discordID, vaultName string) ([]string, error) {
 		FROM sentences
 		WHERE vault_id = (SELECT id FROM vaults WHERE owner_id = ? AND name = ?)
 		ORDER BY saved_at DESC
-		LIMIT 10
 	`
 	rows, err := DB.Query(query, discordID, vaultName)
 	if err != nil {

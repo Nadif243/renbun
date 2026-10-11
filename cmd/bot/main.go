@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"math/rand/v2"
 	"os"
 	"os/signal"
@@ -479,15 +480,29 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				return
 			}
 
-			// 1. Resolve the name/index
+			// The Smart Parser (Handles Vault Name/Index + Optional Page Number)
 			input := strings.Join(args[2:], " ")
+			parts := strings.Fields(input)
+			page := 1
+			vaultTarget := input
+
 			vaultName, err := db.ResolveVaultInput(m.Author.ID, input)
+			if err != nil && len(parts) > 1 {
+				// If exact match fails, check if the last word is a page number
+				lastPart := parts[len(parts)-1]
+				if p, errConv := strconv.Atoi(lastPart); errConv == nil {
+					page = p
+					vaultTarget = strings.TrimSpace(strings.TrimSuffix(input, lastPart))
+					vaultName, err = db.ResolveVaultInput(m.Author.ID, vaultTarget)
+				}
+			}
+
 			if err != nil {
 				s.ChannelMessageSend(m.ChannelID, "⚠️ "+err.Error())
 				return
 			}
 
-			// 2. Fetch the contents
+			// Fetch the contents
 			sentences, err := db.OpenVault(m.Author.ID, vaultName)
 			if err != nil {
 				s.ChannelMessageSend(m.ChannelID, "⚠️ Failed to open vault: "+err.Error())
@@ -499,23 +514,54 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				Sentences: sentences,
 			})
 
-			// 3. Build the Embed
-			embed := &discordgo.MessageEmbed{
-				Title: "📖 Vault Contents: 『 " + vaultName + " 』",
-				Color: 0xC6D8F0,
+			if len(sentences) == 0 {
+				embed := &discordgo.MessageEmbed{
+					Title:       fmt.Sprintf("📖 Vault Contents: 『 %s 』", vaultName),
+					Description: "*This vault is currently empty.*",
+					Color:       0xC6D8F0,
+				}
+				s.ChannelMessageSendEmbed(m.ChannelID, embed)
+				return
 			}
 
-			if len(sentences) == 0 {
-				embed.Description = "*This vault is currently empty.*"
-			} else {
-				// Format sentences nicely inside the embed
-				var formatted []string
-				for i, sent := range sentences {
-					formatted = append(formatted, fmt.Sprintf("**%d.** %s", i+1, sent))
-				}
-				embed.Description = strings.Join(formatted, "\n\n")
+			// --- Pagination Math ---
+			perPage := 10 // Show 10 fragments per page
+			maxPage := int(math.Ceil(float64(len(sentences)) / float64(perPage)))
+
+			// Snap bounds
+			if page < 1 {
+				page = 1
 			}
+			if page > maxPage {
+				page = maxPage // If they type page 99, just show the last page
+			}
+
+			start := (page - 1) * perPage
+			end := start + perPage
+			if end > len(sentences) {
+				end = len(sentences)
+			}
+
+			displaySlice := sentences[start:end]
+
+			// --- Build the Embed ---
+			var descBuilder strings.Builder
+			for i, text := range displaySlice {
+				actualIndex := start + i + 1 // Ensure numbers match their global cache position (e.g., 11, 12, 13...)
+				descBuilder.WriteString(fmt.Sprintf("**%d.** %s\n\n", actualIndex, text))
+			}
+
+			embed := &discordgo.MessageEmbed{
+				Title:       fmt.Sprintf("📖 Vault Contents: 『 %s 』", vaultName),
+				Description: descBuilder.String(),
+				Color:       0x8B008B, // Dark Magenta
+				Footer: &discordgo.MessageEmbedFooter{
+					Text: fmt.Sprintf("Page %d of %d • Total Fragments: %d", page, maxPage, len(sentences)),
+				},
+			}
+
 			s.ChannelMessageSendEmbed(m.ChannelID, embed)
+			return
 
 		case "delete":
 			if len(args) == 2 {
