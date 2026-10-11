@@ -32,6 +32,11 @@ var userState sync.Map
 // mineCache temporarily holds the latest mined sentences for each user.
 var mineCache sync.Map // Maps m.Author.ID -> []db.ExtractedSentence
 
+type VaultSession struct {
+	VaultName string
+	Sentences []string
+}
+
 // vaultCache remembers the last 10 sentences a user viewed via '!vault open'
 var vaultCache sync.Map // Maps m.Author.ID -> []string (raw japanese text)
 
@@ -489,7 +494,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				return
 			}
 			// SEED THE VAULT CACHE
-			vaultCache.Store(m.Author.ID, sentences)
+			vaultCache.Store(m.Author.ID, VaultSession{
+				VaultName: vaultName,
+				Sentences: sentences,
+			})
 
 			// 3. Build the Embed
 			embed := &discordgo.MessageEmbed{
@@ -658,7 +666,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if !ok {
 				return "", fmt.Errorf("no open grimoire found. Run `!vault open <name>` first.")
 			}
-			sentences := cachedData.([]string)
+
+			session := cachedData.(VaultSession)
+			sentences := session.Sentences
+
 			if idx < 1 || idx > len(sentences) {
 				return "", fmt.Errorf("index %d does not exist in your open grimoire.", idx)
 			}
@@ -756,6 +767,125 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+		return
+	}
+
+	// --- SENTENCE CRUD: !delete ---
+	if strings.HasPrefix(m.Content, "!delete ") {
+		args := strings.TrimSpace(strings.TrimPrefix(m.Content, "!delete "))
+		parts := strings.Fields(args)
+
+		var targetVault string
+		var targetIndex int
+		var err error
+
+		// Scenario A: Contextual delete while viewing an open vault (e.g., !delete 2)
+		if len(parts) == 1 {
+			targetIndex, err = strconv.Atoi(parts[0])
+			if err != nil {
+				s.ChannelMessageSend(m.ChannelID, "⚠️ Provide a valid index number (e.g., `!delete 2`) or vault and index (`!delete Slang 2`).")
+				return
+			}
+
+			cached, ok := vaultCache.Load(m.Author.ID)
+			if !ok {
+				s.ChannelMessageSend(m.ChannelID, "⚠️ No open grimoire context found. Use `!delete <grimoire> <index>` or run `!vault open <grimoire>` first.")
+				return
+			}
+
+			session := cached.(VaultSession)
+			targetVault = session.VaultName
+
+			if targetIndex < 1 || targetIndex > len(session.Sentences) {
+				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⚠️ Index %d out of bounds for grimoire 『 %s 』.", targetIndex, targetVault))
+				return
+			}
+
+			rawText := session.Sentences[targetIndex-1]
+
+			if err := db.DeleteSentenceFromVault(m.Author.ID, targetVault, rawText); err != nil {
+				s.ChannelMessageSend(m.ChannelID, "⚠️ "+err.Error())
+				return
+			}
+
+			// Update the active cache by removing the deleted element
+			updatedSentences := append(session.Sentences[:targetIndex-1], session.Sentences[targetIndex:]...)
+			vaultCache.Store(m.Author.ID, VaultSession{
+				VaultName: targetVault,
+				Sentences: updatedSentences,
+			})
+
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("🗡️ Purged fragment #%d from 『 %s 』.", targetIndex, targetVault))
+			return
+		}
+
+		// Scenario B: Explicit vault and index specified (e.g., !delete Slang 2)
+		if len(parts) >= 2 {
+			targetVaultInput := parts[0]
+			targetIndex, err = strconv.Atoi(parts[1])
+			if err != nil {
+				s.ChannelMessageSend(m.ChannelID, "⚠️ Invalid index number specified.")
+				return
+			}
+
+			targetVault, err = db.ResolveVaultInput(m.Author.ID, targetVaultInput)
+			if err != nil {
+				s.ChannelMessageSend(m.ChannelID, "⚠️ "+err.Error())
+				return
+			}
+
+			// Re-fetch sentence list to map the requested index accurately
+			sentences, err := db.OpenVault(m.Author.ID, targetVault)
+			if err != nil {
+				s.ChannelMessageSend(m.ChannelID, "⚠️ "+err.Error())
+				return
+			}
+
+			if targetIndex < 1 || targetIndex > len(sentences) {
+				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⚠️ Index %d out of bounds for grimoire 『 %s 』.", targetIndex, targetVault))
+				return
+			}
+
+			rawText := sentences[targetIndex-1]
+
+			if err := db.DeleteSentenceFromVault(m.Author.ID, targetVault, rawText); err != nil {
+				s.ChannelMessageSend(m.ChannelID, "⚠️ "+err.Error())
+				return
+			}
+
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("🗡️ Purged fragment #%d from 『 %s 』.", targetIndex, targetVault))
+			return
+		}
+	}
+
+	// --- SENTENCE CRUD: !clear ---
+	if strings.HasPrefix(m.Content, "!clear ") {
+		input := strings.TrimSpace(strings.TrimPrefix(m.Content, "!clear "))
+		if input == "" {
+			s.ChannelMessageSend(m.ChannelID, "⚠️ Usage: `!clear <grimoire_name_or_index>`")
+			return
+		}
+
+		vaultName, err := db.ResolveVaultInput(m.Author.ID, input)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "⚠️ "+err.Error())
+			return
+		}
+
+		count, err := db.ClearVaultSentences(m.Author.ID, vaultName)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "⚠️ Failed to clear grimoire: "+err.Error())
+			return
+		}
+
+		// Evict cache if this vault is currently cached open
+		if cached, ok := vaultCache.Load(m.Author.ID); ok {
+			if cached.(VaultSession).VaultName == vaultName {
+				vaultCache.Delete(m.Author.ID)
+			}
+		}
+
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("火 Cleared **%d** fragment(s) from 『 %s 』.", count, vaultName))
 		return
 	}
 }

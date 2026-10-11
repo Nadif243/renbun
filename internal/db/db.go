@@ -265,3 +265,40 @@ func SaveToVault(discordID, vaultName string, sentences []ExtractedSentence) (in
 
 	return int(addedCount), nil
 }
+
+// DeleteSentenceFromVault removes a specific sentence from a vault using raw Japanese text matching.
+func DeleteSentenceFromVault(discordID, vaultName, rawText string) error {
+	var vaultID int
+	err := DB.QueryRow("SELECT id FROM vaults WHERE owner_id = ? AND name = ?", discordID, vaultName).Scan(&vaultID)
+	if err != nil {
+		return fmt.Errorf("vault '%s' not found", vaultName)
+	}
+
+	result, err := DB.Exec("DELETE FROM sentences WHERE vault_id = ? AND raw_text = ?", vaultID, rawText)
+	if err != nil {
+		return err
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("sentence not found in grimoire '%s'", vaultName)
+	}
+
+	return nil
+}
+
+// ClearVaultSentences purges all sentences inside a specified vault.
+func ClearVaultSentences(discordID, vaultName string) (int64, error) {
+	var vaultID int
+	err := DB.QueryRow("SELECT id FROM vaults WHERE owner_id = ? AND name = ?", discordID, vaultName).Scan(&vaultID)
+	if err != nil {
+		return 0, fmt.Errorf("vault '%s' not found", vaultName)
+	}
+
+	result, err := DB.Exec("DELETE FROM sentences WHERE vault_id = ?", vaultID)
+	if err != nil {
+		return 0, err
+	}
+
+	return result.RowsAffected()
+}
