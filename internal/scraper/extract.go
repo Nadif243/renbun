@@ -12,6 +12,9 @@ import (
 	"golang.org/x/net/html/charset"
 )
 
+// Compile the regex ONCE when the engine boots, not every time a URL is scraped.
+var hiraganaRegex = regexp.MustCompile(`\p{Hiragana}`)
+
 // ExtractSentences takes a URL, downloads the HTML, and isolates Japanese sentences.
 func ExtractSentences(url string) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -50,7 +53,6 @@ func ExtractSentences(url string) ([]string, error) {
 	// Destroy all furigana reading tags to keep the kanji clean
 	doc.Find("rt, rp").Remove()
 
-	hiraganaRegex := regexp.MustCompile(`\p{Hiragana}`)
 	var sentences []string
 
 	doc.Find("p, .main_text").Each(func(i int, s *goquery.Selection) {
@@ -61,7 +63,11 @@ func ExtractSentences(url string) ([]string, error) {
 				// Clean up internal newlines caused by Aozora's <br> tags
 				cleanPart := strings.ReplaceAll(part, "\n", "")
 				cleanPart = strings.ReplaceAll(cleanPart, "\r", "")
-				cleanPart = strings.ReplaceAll(cleanPart, " ", "") // Remove full-width Japanese spaces
+
+				// Explicitly target the Japanese full-width space " " as well as standard spaces
+				cleanPart = strings.ReplaceAll(cleanPart, " ", "")
+				cleanPart = strings.ReplaceAll(cleanPart, "　", "")
+
 				cleanPart = strings.TrimSpace(cleanPart)
 
 				if len([]rune(cleanPart)) > 5 && hiraganaRegex.MatchString(cleanPart) {
