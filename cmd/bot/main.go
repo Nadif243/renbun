@@ -1024,4 +1024,50 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		s.ChannelMessageSendEmbed(m.ChannelID, embed)
 		return
 	}
+
+	// --- MANUAL ENTRY: !add ---
+	if strings.HasPrefix(m.Content, "!add ") {
+		input := strings.TrimSpace(strings.TrimPrefix(m.Content, "!add "))
+
+		// SplitN with '2' forces Go to only split at the FIRST space.
+		// parts[0] becomes the vault. parts[1] becomes the entire rest of the message.
+		parts := strings.SplitN(input, " ", 2)
+
+		if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
+			s.ChannelMessageSend(m.ChannelID, "⚠️ Usage: `!add <grimoire_name_or_index> <sentence>`")
+			return
+		}
+
+		vaultTarget := parts[0]
+		rawSentence := strings.TrimSpace(parts[1])
+
+		vaultName, err := db.ResolveVaultInput(m.Author.ID, vaultTarget)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "⚠️ "+err.Error())
+			return
+		}
+
+		// Wrap the single string into the ExtractedSentence slice format your DB expects
+		sentenceData := []db.ExtractedSentence{
+			{
+				Keyword: "Manual Entry",
+				RawText: rawSentence,
+				Source:  "Manual", // Marks it so you know it didn't come from a website
+			},
+		}
+
+		addedCount, err := db.SaveToVault(m.Author.ID, vaultName, sentenceData)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "⚠️ Failed to bind fragment: "+err.Error())
+			return
+		}
+
+		if addedCount == 0 {
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("🛡️ 『 %s 』: This fragment already exists here.", vaultName))
+			return
+		}
+
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("🩸 Successfully bound **1** manual fragment to 『 %s 』.", vaultName))
+		return
+	}
 }
