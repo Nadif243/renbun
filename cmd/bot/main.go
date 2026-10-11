@@ -934,4 +934,94 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("火 Cleared **%d** fragment(s) from 『 %s 』.", count, vaultName))
 		return
 	}
+
+	// --- GLOBAL SEARCH: !search ---
+	if strings.HasPrefix(m.Content, "!search ") {
+		args := strings.TrimSpace(strings.TrimPrefix(m.Content, "!search "))
+		if args == "" {
+			s.ChannelMessageSend(m.ChannelID, "⚠️ Usage: `!search <keyword> [page]`")
+			return
+		}
+
+		parts := strings.Fields(args)
+		page := 1
+		keyword := args
+
+		// Smart Parser: Check if the last word is a page number
+		if len(parts) > 1 {
+			lastPart := parts[len(parts)-1]
+			if p, errConv := strconv.Atoi(lastPart); errConv == nil {
+				page = p
+				keyword = strings.TrimSpace(strings.TrimSuffix(args, lastPart))
+			}
+		}
+
+		results, err := db.SearchSentences(m.Author.ID, keyword)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "⚠️ Search failed: "+err.Error())
+			return
+		}
+
+		if len(results) == 0 {
+			embed := &discordgo.MessageEmbed{
+				Title:       fmt.Sprintf("🔍 Search Results: 『 %s 』", keyword),
+				Description: "*No fragments found containing this keyword in any grimoire.*",
+				Color:       0x4682B4, // Steel Blue
+			}
+			s.ChannelMessageSendEmbed(m.ChannelID, embed)
+			return
+		}
+
+		// Extract just the raw text to feed into the Oracle cache
+		var pureSentences []string
+		for _, r := range results {
+			pureSentences = append(pureSentences, r.RawText)
+		}
+
+		// SEED THE CACHE AS A PSEUDO-VAULT
+		// This makes !present 1 or !dissect 2 work instantly on search results
+		vaultCache.Store(m.Author.ID, VaultSession{
+			VaultName: "Search: " + keyword,
+			Sentences: pureSentences,
+		})
+
+		// --- Pagination Math ---
+		perPage := 10
+		maxPage := int(math.Ceil(float64(len(results)) / float64(perPage)))
+
+		if page < 1 {
+			page = 1
+		}
+		if page > maxPage {
+			page = maxPage
+		}
+
+		start := (page - 1) * perPage
+		end := start + perPage
+		if end > len(results) {
+			end = len(results)
+		}
+
+		displaySlice := results[start:end]
+
+		// --- Build the Embed ---
+		var descBuilder strings.Builder
+		for i, res := range displaySlice {
+			actualIndex := start + i + 1
+			// Format: 1. [VaultName] Sentence
+			descBuilder.WriteString(fmt.Sprintf("**%d.** [%s] %s\n\n", actualIndex, res.VaultName, res.RawText))
+		}
+
+		embed := &discordgo.MessageEmbed{
+			Title:       fmt.Sprintf("🔍 Search Results: 『 %s 』", keyword),
+			Description: descBuilder.String(),
+			Color:       0x4682B4, // Steel Blue
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: fmt.Sprintf("Page %d of %d • Total Matches: %d", page, maxPage, len(results)),
+			},
+		}
+
+		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+		return
+	}
 }

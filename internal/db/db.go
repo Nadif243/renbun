@@ -301,3 +301,40 @@ func ClearVaultSentences(discordID, vaultName string) (int64, error) {
 
 	return result.RowsAffected()
 }
+
+// SearchResult holds a matched sentence and its source grimoire.
+type SearchResult struct {
+	VaultName string
+	RawText   string
+}
+
+// SearchSentences hunts for a keyword across all grimoires owned by the user.
+func SearchSentences(discordID, keyword string) ([]SearchResult, error) {
+	// JOIN sentences and vaults to get both the text and the vault name
+	query := `
+		SELECT v.name, s.raw_text
+		FROM sentences s
+		JOIN vaults v ON s.vault_id = v.id
+		WHERE v.owner_id = ? AND s.raw_text LIKE ?
+		ORDER BY s.saved_at DESC
+	`
+	// Wrap the keyword in wildcards for substring matching
+	searchTerm := "%" + keyword + "%"
+
+	rows, err := DB.Query(query, discordID, searchTerm)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []SearchResult
+	for rows.Next() {
+		var res SearchResult
+		if err := rows.Scan(&res.VaultName, &res.RawText); err != nil {
+			return nil, err
+		}
+		results = append(results, res)
+	}
+
+	return results, nil
+}
