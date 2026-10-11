@@ -57,6 +57,10 @@ func cleanJSON(raw string) string {
 // Present requests a lightweight kana + English translation.
 func Present(ctx context.Context, japaneseText string) (*PresentResult, error) {
 	model := client.GenerativeModel("gemini-3.5-flash-lite")
+
+	// Force the Gemini API to exclusively return JSON
+	model.ResponseMIMEType = "application/json"
+
 	// Create a float32 variable, then pass its memory address pointer
 	temp := float32(0.1) // Keep it highly analytical and deterministic
 	model.Temperature = &temp
@@ -87,6 +91,10 @@ Output strictly in JSON format with exactly these two keys: "reading" (the full 
 // Dissect requests a deep, structured morphological breakdown.
 func Dissect(ctx context.Context, japaneseText string) (*DissectResult, error) {
 	model := client.GenerativeModel("gemini-3.6-flash")
+
+	// Force the Gemini API to exclusively return JSON
+	model.ResponseMIMEType = "application/json"
+
 	temp := float32(0.2)
 	model.Temperature = &temp
 
