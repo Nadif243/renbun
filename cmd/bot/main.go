@@ -1052,7 +1052,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			{
 				Keyword: "Manual Entry",
 				RawText: rawSentence,
-				Source:  "Manual", // Marks it so you know it didn't come from a website
+				Source:  "Manual", // Marks it so user know it didn't come from a website
 			},
 		}
 
@@ -1068,6 +1068,46 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("🩸 Successfully bound **1** manual fragment to 『 %s 』.", vaultName))
+		return
+	}
+
+	// --- SYSTEM: !help ---
+	if m.Content == "!help" {
+		embed := &discordgo.MessageEmbed{
+			Title:       "📜 Renbun (錬文) - The Alchemical Grimoire",
+			Description: "A Japanese language study engine for sentence extraction, morphological dissection, and vault management.\n\n",
+			Color:       0xC6D8F0,
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name: "🔍 Scrying & Acquisition",
+					Value: "`!mine <keyword>`\nScour the web for high-quality sentences.\n\n" +
+						"`!save <1 2 3> to <vault>`\nBind mined fragments into a grimoire.\n\n" +
+						"`!add <vault> <sentence>`\nManually inject a raw sentence into a grimoire.",
+					Inline: true,
+				},
+				{
+					Name: "📖 Grimoire Management",
+					Value: "`!vault list` | `!vault create <name>` | `!vault delete <name>`\nManage your core vaults.\n\n" +
+						"`!vault open <name/index> [page]`\nOpen a grimoire to view its contents.\n\n" +
+						"`!search <keyword> [page]`\nHunt for a specific word across all your grimoires.\n\n" +
+						"`!delete <index>` OR `!delete <vault> <index>`\nPurge a specific fragment.\n\n" +
+						"`!clear <vault>`\nErase all fragments within a grimoire (leaves the vault intact).",
+					Inline: true,
+				},
+				{
+					Name: "👁️ The Oracle (Inspection)",
+					Value: "*Note: You must have a grimoire opened (via `!vault open` or `!search`) to use the Oracle.*\n\n" +
+						"`!present <index>`\nReveal the kana reading and English translation.\n\n" +
+						"`!dissect <index>`\nPerform a deep morphological breakdown (JLPT level, nuance, grammar points, and vocabulary).",
+					Inline: true,
+				},
+			},
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: "Renbun Engine • Built for natural immersion study.",
+			},
+		}
+
+		s.ChannelMessageSendEmbed(m.ChannelID, embed)
 		return
 	}
 }
