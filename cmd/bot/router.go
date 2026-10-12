@@ -63,5 +63,7 @@ func messageRouter(s *discordgo.Session, m *discordgo.MessageCreate) {
 		handleSearch(s, m)
 	case strings.HasPrefix(content, "!add "):
 		handleAdd(s, m)
+	case strings.HasPrefix(m.Content, "!source"):
+		handleSource(s, m)
 	}
 }
