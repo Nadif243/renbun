@@ -16,22 +16,39 @@ import (
 )
 
 func handleMine(s *discordgo.Session, m *discordgo.MessageCreate) {
-	// Extract the URL from the message
-	keyword := strings.TrimSpace(strings.TrimPrefix(m.Content, "!mine "))
-
-	// 1. Load the target list
-	urls := loadTargets("target.txt")
-	if len(urls) == 0 {
-		s.ChannelMessageSend(m.ChannelID, "⚠️ `target.txt` is empty or missing.")
+	// 1. Parse the input
+	input := strings.TrimSpace(strings.TrimPrefix(m.Content, "!mine"))
+	if input == "" {
+		s.ChannelMessageSend(m.ChannelID, "⚠️ Please provide a keyword. Usage: `!mine <keyword>` or `!mine <keyword> in <category>`")
 		return
 	}
 
-	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("🔍 **Mining %d sources** for the word: `%s`...", len(urls), keyword))
+	keyword := input
+	category := "All" // Default to scraping everything if no category is specified
 
-	// 2. Ignite the Worker Pool (using 5 concurrent workers)
+	// 2. Detect specific domain targeting
+	if idx := strings.LastIndex(strings.ToLower(input), " in "); idx != -1 {
+		keyword = strings.TrimSpace(input[:idx])
+		category = strings.TrimSpace(input[idx+4:])
+	}
+
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("🔍 Engaging worker pool for **%s** within **%s** domains...", keyword, category))
+
+	// 3. Fetch URLs dynamically from the database
+	urls, err := db.FetchUrls(category)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "⚠️ Database Error: "+err.Error())
+		return
+	}
+	if len(urls) == 0 {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⚠️ No URLs found for category '%s'. Use `!source list` to view available domains.", category))
+		return
+	}
+
+	// 4. Ignite the Worker Pool (using 5 concurrent workers)
 	results := worker.RunPool(urls, 5)
 
-	// 3. The Goldilocks Filter
+	// 5. The Goldilocks Filter
 	var validSentences []db.ExtractedSentence
 	for _, res := range results {
 		if res.Err != nil {
@@ -55,13 +72,13 @@ func handleMine(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}
 
-	// 4. Handle No Results
+	// 6. Handle No Results
 	if len(validSentences) == 0 {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⚠️ No high-quality sentences found for `%s` matching the length criteria.", keyword))
 		return
 	}
 
-	// 5. Shuffle the array to ensure fresh examples every search attempt
+	// 7. Shuffle the array to ensure fresh examples every search attempt
 	rand.Shuffle(len(validSentences), func(i, j int) {
 		validSentences[i], validSentences[j] = validSentences[j], validSentences[i]
 	})
@@ -72,7 +89,7 @@ func handleMine(s *discordgo.Session, m *discordgo.MessageCreate) {
 		limit = len(validSentences)
 	}
 
-	// 6. Format and Ship the Output as a Rich Embed
+	// 8. Format and Ship the Output as a Rich Embed
 	embed := &discordgo.MessageEmbed{
 		Title:       fmt.Sprintf("錬文 Engine: %s", keyword),
 		Description: fmt.Sprintf("Scanned **%d** sources.\nFound **%d** high-quality sentences.", len(urls), len(validSentences)),
