@@ -51,6 +51,12 @@ func InitDB(filepath string) {
 		source_url TEXT,
 		saved_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (vault_id) REFERENCES vaults(id)
+	);
+	CREATE TABLE IF NOT EXISTS sources (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		category TEXT,
+		url TEXT,
+		UNIQUE(category, url)
 	);`
 
 	_, err = DB.Exec(createTables)

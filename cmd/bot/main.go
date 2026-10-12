@@ -24,6 +24,11 @@ func main() {
 	db.InitDB("./renbun.db")
 	defer db.DB.Close()
 
+	// Inject default target URLs if the sources table is empty
+	if err := db.SeedDefaultSources(); err != nil {
+		log.Fatal("Critical: Failed to seed default sources: ", err)
+	}
+
 	// 3. Ignite the Oracle
 	geminiKey := os.Getenv("GEMINI_API_KEY")
 	if geminiKey == "" {
