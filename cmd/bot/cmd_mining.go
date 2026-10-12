@@ -166,7 +166,7 @@ func handleSave(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		embed := &discordgo.MessageEmbed{
 			Title:       "📖 Select a Destination Grimoire",
-			Color:       0xC6D8F0,
+			Color:       0x572E5B, // Deep Violet
 			Description: listData + "\n\n*Reply with the name or index number (or type `cancel`).*",
 		}
 		s.ChannelMessageSendEmbed(m.ChannelID, embed)

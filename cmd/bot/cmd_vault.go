@@ -27,7 +27,7 @@ func handleVault(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if len(args) == 1 {
 		embed := &discordgo.MessageEmbed{
 			Title: "📖 The Vault Grimoire",
-			Color: 0xC6D8F0, // Powder Blue
+			Color: 0x572E5B, // Deep Violet
 			Description: "`!vault create <name>` - Forge a new collection\n" +
 				"`!vault list` - View your active vaults\n" +
 				"`!vault open <name or index>` - Inspect a vault's contents\n" +
@@ -66,7 +66,7 @@ func handleVault(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		embed := &discordgo.MessageEmbed{
 			Title:       "🔍 Your Bound Grimoires",
-			Color:       0xC6D8F0,
+			Color:       0x572E5B,
 			Description: listData,
 		}
 		s.ChannelMessageSendEmbed(m.ChannelID, embed)
@@ -84,7 +84,7 @@ func handleVault(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 			embed := &discordgo.MessageEmbed{
 				Title:       "📖 Select a Grimoire to Open",
-				Color:       0xC6D8F0,
+				Color:       0x572E5B,
 				Description: listData + "\n\n*Reply with the name or index number (or type `cancel`).*",
 			}
 			s.ChannelMessageSendEmbed(m.ChannelID, embed)
@@ -129,7 +129,7 @@ func handleVault(s *discordgo.Session, m *discordgo.MessageCreate) {
 			embed := &discordgo.MessageEmbed{
 				Title:       fmt.Sprintf("📖 Vault Contents: 『 %s 』", vaultName),
 				Description: "*This vault is currently empty.*",
-				Color:       0xC6D8F0,
+				Color:       0x572E5B,
 			}
 			s.ChannelMessageSendEmbed(m.ChannelID, embed)
 			return
@@ -165,7 +165,7 @@ func handleVault(s *discordgo.Session, m *discordgo.MessageCreate) {
 		embed := &discordgo.MessageEmbed{
 			Title:       fmt.Sprintf("📖 Vault Contents: 『 %s 』", vaultName),
 			Description: descBuilder.String(),
-			Color:       0x8B008B, // Dark Magenta
+			Color:       0x572E5B,
 			Footer: &discordgo.MessageEmbedFooter{
 				Text: fmt.Sprintf("Page %d of %d • Total Fragments: %d", page, maxPage, len(sentences)),
 			},
@@ -186,7 +186,7 @@ func handleVault(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 			embed := &discordgo.MessageEmbed{
 				Title:       "🔥 Select a Grimoire to Incinerate",
-				Color:       0xC6D8F0,
+				Color:       0x572E5B,
 				Description: listData + "\n\n*Reply with the name or index number (or type `cancel`).*",
 			}
 			s.ChannelMessageSendEmbed(m.ChannelID, embed)

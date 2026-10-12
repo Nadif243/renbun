@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -13,10 +14,25 @@ import (
 )
 
 func handleHelp(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// Open the local image file
+	file, err := os.Open("assets/logo.png")
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "⚠️ System Error: Missing grimoire seal (logo.png).")
+		return
+	}
+	defer file.Close()
+
 	embed := &discordgo.MessageEmbed{
 		Title:       "📜 Renbun (錬文) - The Alchemical Grimoire",
 		Description: "A Japanese language study engine for sentence extraction, morphological dissection, and vault management.\n\n",
-		Color:       0xC6D8F0,
+		Color:       0x8B9EB6, // Heather Blue
+		Author: &discordgo.MessageEmbedAuthor{
+			Name: "錬文",
+		},
+		Thumbnail: &discordgo.MessageEmbedThumbnail{
+			URL: "attachment://logo.png",
+		},
+
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name: "🔍 Scrying & Acquisition",
@@ -47,7 +63,16 @@ func handleHelp(s *discordgo.Session, m *discordgo.MessageCreate) {
 		},
 	}
 
-	s.ChannelMessageSendEmbed(m.ChannelID, embed)
+	// Send as a Complex Message with the file payload
+	s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
+		Embeds: []*discordgo.MessageEmbed{embed},
+		Files: []*discordgo.File{
+			{
+				Name:   "logo.png",
+				Reader: file,
+			},
+		},
+	})
 }
 
 func handleBind(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -89,7 +114,7 @@ func handleSearch(s *discordgo.Session, m *discordgo.MessageCreate) {
 		embed := &discordgo.MessageEmbed{
 			Title:       fmt.Sprintf("🔍 Search Results: 『 %s 』", keyword),
 			Description: "*No fragments found containing this keyword in any grimoire.*",
-			Color:       0x4682B4, // Steel Blue
+			Color:       0x8B9EB6,
 		}
 		s.ChannelMessageSendEmbed(m.ChannelID, embed)
 		return
@@ -138,7 +163,7 @@ func handleSearch(s *discordgo.Session, m *discordgo.MessageCreate) {
 	embed := &discordgo.MessageEmbed{
 		Title:       fmt.Sprintf("🔍 Search Results: 『 %s 』", keyword),
 		Description: descBuilder.String(),
-		Color:       0x4682B4, // Steel Blue
+		Color:       0x8B9EB6,
 		Footer: &discordgo.MessageEmbedFooter{
 			Text: fmt.Sprintf("Page %d of %d • Total Matches: %d", page, maxPage, len(results)),
 		},
@@ -190,7 +215,7 @@ func handleStateInterceptor(s *discordgo.Session, m *discordgo.MessageCreate) bo
 
 			embed := &discordgo.MessageEmbed{
 				Title: "📖 Vault Contents: 『 " + vaultName + " 』",
-				Color: 0xC6D8F0,
+				Color: 0x572E5B, // Deep Violet
 			}
 			if len(sentences) == 0 {
 				embed.Description = "*This vault is currently empty.*"

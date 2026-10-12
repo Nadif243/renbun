@@ -33,7 +33,7 @@ func handlePresent(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	embed := &discordgo.MessageEmbed{
-		Color:       0xC6D8F0, // Powder Blue
+		Color:       0x950B10, // Dark Crimson
 		Description: fmt.Sprintf("**『 %s 』**\n\n**Kana:** %s\n**Meaning:** %s", targetText, res.Reading, res.Translation),
 	}
 	s.ChannelMessageSendEmbed(m.ChannelID, embed)
@@ -65,7 +65,7 @@ func handleDissect(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	embed := &discordgo.MessageEmbed{
 		Title:       "👁️ Alchemical Dissection",
-		Color:       0xC6D8F0, // Powder Blue
+		Color:       0x950B10,
 		Description: fmt.Sprintf("**Target:** %s\n**Kana:** %s\n**Translation:** %s", targetText, res.Reading, res.Translation),
 		Fields: []*discordgo.MessageEmbedField{
 			{Name: "JLPT Level", Value: res.JLPT, Inline: true},
