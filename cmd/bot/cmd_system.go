@@ -34,28 +34,43 @@ func handleHelp(s *discordgo.Session, m *discordgo.MessageCreate) {
 		},
 
 		Fields: []*discordgo.MessageEmbedField{
+			// ROW 1
 			{
 				Name: "🔍 Scrying & Acquisition",
-				Value: "`!mine <keyword>`\nScour the web for high-quality sentences.\n\n" +
+				Value: "`!mine <keyword> [in <category>]`\nScour the web (or specific domains) for high-quality sentences.\n\n" +
 					"`!save <1 2 3> to <vault>`\nBind mined fragments into a grimoire.\n\n" +
 					"`!add <vault> <sentence>`\nManually inject a raw sentence into a grimoire.",
 				Inline: true,
 			},
 			{
+				Name: "🌐 Target Domains (Sources)",
+				Value: "`!source list`\nView your active domain categories.\n\n" +
+					"`!source add <category> <url>`\nInject a new scraping target.\n\n" +
+					"`!source remove <category> <index>`\nRemove a target from a category.",
+				Inline: true,
+			},
+			// THE INVISIBLE LINE BREAK
+			{
+				Name:   "\u200b",
+				Value:  "\u200b",
+				Inline: true,
+			},
+			// ROW 2
+			{
 				Name: "📖 Grimoire Management",
 				Value: "`!vault list` | `!vault create <name>` | `!vault delete <name>`\nManage your core vaults.\n\n" +
-					"`!vault open <name/index> [page]`\nOpen a grimoire to view its contents.\n\n" +
+					"`!vault open <name> [page]`\nOpen a grimoire to view its contents.\n\n" +
 					"`!search <keyword> [page]`\nHunt for a specific word across all your grimoires.\n\n" +
 					"`!delete <index>` OR `!delete <vault> <index>`\nPurge a specific fragment.\n\n" +
-					"`!clear <vault>`\nErase all fragments within a grimoire (leaves the vault intact).",
-				Inline: true,
+					"`!clear <vault>`\nErase all fragments within a grimoire.",
+				Inline: true, // Switched back to true
 			},
 			{
 				Name: "👁️ The Oracle (Inspection)",
 				Value: "*Note: You must have a grimoire opened (via `!vault open` or `!search`) to use the Oracle.*\n\n" +
-					"`!present <index>`\nReveal the kana reading and English translation.\n\n" +
-					"`!dissect <index>`\nPerform a deep morphological breakdown (JLPT level, nuance, grammar points, and vocabulary).",
-				Inline: true,
+					"`!present <index/text>`\nReveal the kana reading and English translation.\n\n" +
+					"`!dissect <index/text>`\nPerform a deep morphological breakdown.",
+				Inline: true, // Switched back to true
 			},
 		},
 		Footer: &discordgo.MessageEmbedFooter{
