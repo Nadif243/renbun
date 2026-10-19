@@ -59,7 +59,7 @@ Renbun is designed to be fully self-hosted. This ensures web scraping targets an
 #### Build from Source
 1. Clone the repository and navigate into the directory.
     ```
-    git clone [https://github.com/yourusername/renbun-engine.git](https://github.com/yourusername/renbun-engine.git)
+    git clone https://github.com/Nadif243/renbun.git
     cd renbun-engine
     ```
 2. Create the .env file in the root directory with your Discord and Gemini credentials.
