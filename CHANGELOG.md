@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-20
+
 ### Added
 - Dynamic source engine: mining targets now live in the SQLite `sources` table
   instead of `target.txt`, with a seeder that loads baseline sources on first boot.
@@ -40,5 +42,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SQLite-backed grimoire engine for saving, searching, and managing mined sentences.
 - Multi-threaded worker pool for high-speed sentence extraction.
 
-[Unreleased]: https://github.com/Nadif243/renbun/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Nadif243/renbun/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Nadif243/renbun/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Nadif243/renbun/releases/tag/v1.0.0
