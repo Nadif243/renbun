@@ -228,22 +228,90 @@ func handleStateInterceptor(s *discordgo.Session, m *discordgo.MessageCreate) bo
 				return true
 			}
 
-			embed := &discordgo.MessageEmbed{
-				Title: "📖 Vault Contents: 『 " + vaultName + " 』",
-				Color: 0x572E5B, // Deep Violet
-			}
+			// Clear the conversational state lock since we successfully processed the input
+			userState.Delete(m.Author.ID)
+
+			// Handle empty vault case cleanly (no buttons needed)
 			if len(sentences) == 0 {
-				embed.Description = "*This vault is currently empty.*"
-			} else {
-				var formatted []string
-				for i, sent := range sentences {
-					formatted = append(formatted, fmt.Sprintf("**%d.** %s", i+1, sent))
+				embed := &discordgo.MessageEmbed{
+					Title:       fmt.Sprintf("📖 Vault Contents: 『 %s 』", vaultName),
+					Description: "*This vault is currently empty.*",
+					Color:       0x572E5B, // Deep Violet
 				}
-				embed.Description = strings.Join(formatted, "\n\n")
+				s.ChannelMessageSendEmbed(m.ChannelID, embed)
+				return true
 			}
 
-			s.ChannelMessageSendEmbed(m.ChannelID, embed)
-			userState.Delete(m.Author.ID)
+			// --- Pagination Math (Defaulting to Page 1) ---
+			perPage := 10
+			maxPage := int(math.Ceil(float64(len(sentences)) / float64(perPage)))
+			if maxPage < 1 {
+				maxPage = 1
+			}
+			page := 1
+
+			start := 0
+			end := perPage
+			if end > len(sentences) {
+				end = len(sentences)
+			}
+			displaySlice := sentences[start:end]
+
+			// --- Build the Embed Description ---
+			var descBuilder strings.Builder
+			for i, text := range displaySlice {
+				descBuilder.WriteString(fmt.Sprintf("**%d.** %s\n\n", start+i+1, text))
+			}
+
+			embed := &discordgo.MessageEmbed{
+				Title:       fmt.Sprintf("📖 Vault Contents: 『 %s 』", vaultName),
+				Description: strings.TrimSpace(descBuilder.String()), // Trim the very last newline for a flush bottom edge
+				Color:       0x572E5B,                                // Deep Violet
+				Footer: &discordgo.MessageEmbedFooter{
+					Text: fmt.Sprintf("Page %d of %d • Total Fragments: %d", page, maxPage, len(sentences)),
+				},
+			}
+
+			// --- Build the Buttons ---
+			components := []discordgo.MessageComponent{
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.Button{
+							Label:    "⬅️",
+							Style:    discordgo.SecondaryButton,
+							CustomID: "page_prev",
+							Disabled: page <= 1,
+						},
+						discordgo.Button{
+							Label:    "✖️",
+							Style:    discordgo.DangerButton,
+							CustomID: "page_close",
+						},
+						discordgo.Button{
+							Label:    "➡️",
+							Style:    discordgo.SecondaryButton,
+							CustomID: "page_next",
+							Disabled: page >= maxPage,
+						},
+					},
+				},
+			}
+
+			// --- Send and Cache ---
+			msg, err := s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
+				Embeds:     []*discordgo.MessageEmbed{embed},
+				Components: components,
+			})
+			if err == nil {
+				paginationCache.Store(msg.ID, &PaginationState{
+					AuthorID:  m.Author.ID,
+					VaultName: vaultName,
+					Sentences: sentences,
+					Page:      page,
+					MaxPage:   maxPage,
+				})
+			}
+
 			return true
 		}
 

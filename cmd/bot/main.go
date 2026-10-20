@@ -50,6 +50,7 @@ func main() {
 
 	// 5. Register the Router
 	dg.AddHandler(messageRouter)
+	dg.AddHandler(handleInteraction)
 	dg.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentMessageContent
 
 	// 6. Open Connection & Set Status

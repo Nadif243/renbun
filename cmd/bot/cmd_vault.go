@@ -5,11 +5,23 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 
 	"rennbunengine/internal/db"
 
 	"github.com/bwmarrin/discordgo"
 )
+
+type PaginationState struct {
+	AuthorID  string
+	VaultName string
+	Sentences []string
+	Page      int
+	MaxPage   int
+}
+
+// Stores active grimoire pages mapped by MessageID
+var paginationCache sync.Map
 
 func handleVault(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Verify binding status FIRST to protect all subcommands
@@ -171,7 +183,48 @@ func handleVault(s *discordgo.Session, m *discordgo.MessageCreate) {
 			},
 		}
 
-		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+		// 1. Build the buttons using maxPage
+		components := []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.Button{
+						Label:    "⬅️",
+						Style:    discordgo.SecondaryButton,
+						CustomID: "page_prev",
+						Disabled: page <= 1,
+					},
+					discordgo.Button{
+						Label:    "✖️",
+						Style:    discordgo.DangerButton,
+						CustomID: "page_close",
+					},
+					discordgo.Button{
+						Label:    "➡️",
+						Style:    discordgo.SecondaryButton,
+						CustomID: "page_next",
+						Disabled: page >= maxPage,
+					},
+				},
+			},
+		}
+
+		// 2. Send the embed AND the buttons together
+		msg, err := s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
+			Embeds:     []*discordgo.MessageEmbed{embed},
+			Components: components,
+		})
+		if err != nil {
+			return
+		}
+
+		// 3. Save the state so the buttons know what to flip
+		paginationCache.Store(msg.ID, &PaginationState{
+			AuthorID:  m.Author.ID,
+			VaultName: vaultName,
+			Sentences: sentences,
+			Page:      page,
+			MaxPage:   maxPage,
+		})
 		return
 
 	case "delete":

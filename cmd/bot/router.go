@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -81,4 +82,111 @@ func messageRouter(s *discordgo.Session, m *discordgo.MessageCreate) {
 	case "!clear":
 		handleClear(s, m)
 	}
+}
+
+func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// 1. Only process button clicks
+	if i.Type != discordgo.InteractionMessageComponent {
+		return
+	}
+
+	// 2. Get the User ID safely (works in servers and DMs)
+	userID := ""
+	if i.Member != nil {
+		userID = i.Member.User.ID
+	} else if i.User != nil {
+		userID = i.User.ID
+	}
+
+	// 3. Load the vault state for this specific message
+	val, ok := paginationCache.Load(i.Message.ID)
+	if !ok {
+		return // Ignore clicks on old/expired messages
+	}
+	state := val.(*PaginationState)
+
+	// 4. Ensure only the vault owner can click the buttons
+	if userID != state.AuthorID {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "⚠️ This is not your grimoire.",
+				Flags:   discordgo.MessageFlagsEphemeral, // Only they see this warning
+			},
+		})
+		return
+	}
+
+	customID := i.MessageComponentData().CustomID
+
+	// 5. Handle the Close Button
+	if customID == "page_close" {
+		s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+		paginationCache.Delete(i.Message.ID)
+		return
+	}
+
+	// 6. Handle Pagination Math
+	if customID == "page_next" && state.Page < state.MaxPage {
+		state.Page++
+	} else if customID == "page_prev" && state.Page > 1 {
+		state.Page--
+	}
+
+	// 7. Rebuild the Slice
+	start := (state.Page - 1) * 10 // Assuming 10 items per page
+	end := start + 10
+	if end > len(state.Sentences) {
+		end = len(state.Sentences)
+	}
+	pageItems := state.Sentences[start:end]
+
+	// 8. Rebuild the Embed Description
+	var desc strings.Builder
+	for idx, text := range pageItems {
+		desc.WriteString(fmt.Sprintf("**%d.** %s\n\n", start+idx+1, text))
+	}
+
+	newEmbed := &discordgo.MessageEmbed{
+		Title:       fmt.Sprintf("📖 Vault Contents: 『 %s 』", state.VaultName),
+		Description: desc.String(),
+		Color:       0x572E5B,
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("Page %d of %d • Total Fragments: %d", state.Page, state.MaxPage, len(state.Sentences)),
+		},
+	}
+
+	// 9. Rebuild the Buttons (to update their disabled state)
+	newComponents := []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Label:    "⬅️",
+					Style:    discordgo.SecondaryButton,
+					CustomID: "page_prev",
+					Disabled: state.Page <= 1,
+				},
+				discordgo.Button{
+					Label:    "✖️",
+					Style:    discordgo.DangerButton,
+					CustomID: "page_close",
+				},
+				discordgo.Button{
+					Label:    "➡️",
+					Style:    discordgo.SecondaryButton,
+					CustomID: "page_next",
+					Disabled: state.Page >= state.MaxPage,
+				},
+			},
+		},
+	}
+
+	// 10. Instantly edit the message
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseUpdateMessage,
+		Data: &discordgo.InteractionResponseData{
+			Embeds:     []*discordgo.MessageEmbed{newEmbed},
+			Components: newComponents,
+		},
+	})
 }
