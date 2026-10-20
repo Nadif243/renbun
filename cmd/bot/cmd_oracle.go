@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"rennbunengine/internal/oracle"
 
@@ -130,18 +131,29 @@ func resolveTargetText(authorID string, input string) (string, error) {
 
 	// If they typed a number, pull from vaultCache
 	if idx, err := strconv.Atoi(input); err == nil {
-		cachedData, ok := vaultCache.Load(authorID) // Note: using authorID here
-		if !ok {
-			return "", fmt.Errorf("no open grimoire found. Run `!vault open <name>` first.")
+		// 1. Check the Mining Cache First (Highly transient)
+		if cachedMine, ok := mineCache.Load(authorID); ok {
+			entry := cachedMine.(CacheEntry)
+			// Verify the mined fragments haven't decayed
+			if !time.Now().After(entry.ExpiresAt) {
+				extractedList := entry.Payload
+				// Ensure the index exists in the mined list
+				if idx >= 1 && idx <= len(extractedList) {
+					return extractedList[idx-1].RawText, nil // Target the RawText field
+				}
+			}
 		}
 
-		session := cachedData.(VaultSession)
-		sentences := session.Sentences
-
-		if idx < 1 || idx > len(sentences) {
-			return "", fmt.Errorf("index %d does not exist in your open grimoire.", idx)
+		// 2. Fallback to the Vault Cache
+		if cachedVault, ok := vaultCache.Load(authorID); ok {
+			session := cachedVault.(VaultSession)
+			sentences := session.Sentences
+			if idx >= 1 && idx <= len(sentences) {
+				return sentences[idx-1], nil
+			}
 		}
-		return sentences[idx-1], nil
+
+		return "", fmt.Errorf("index %d does not exist in your active mine or open grimoire.", idx)
 	}
 
 	// If it's not a number, assume they typed raw Japanese text
