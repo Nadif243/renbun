@@ -36,34 +36,49 @@ func messageRouter(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return // Stop processing if the interceptor handled it
 	}
 
-	// 2. Route Standard Commands
-	content := m.Content
-	switch {
-	case content == "!ping":
+	// 2. Fast exit if the message doesn't start with the prefix
+	if !strings.HasPrefix(m.Content, "!") {
+		return
+	}
+
+	// 3. Extract the exact command trigger (the first word)
+	args := strings.Fields(m.Content)
+	if len(args) == 0 {
+		return
+	}
+
+	// Convert to lowercase so "!Vault" and "!vault" both work
+	command := strings.ToLower(args[0])
+
+	// 4. Route Standard Commands
+	switch command {
+	case "!ping":
 		s.ChannelMessageSend(m.ChannelID, "Pong! 錬文 engine is listening.")
-	case content == "!help":
+
+	case "!help", "!h":
 		handleHelp(s, m)
-	case content == "!bind":
+	case "!bind":
 		handleBind(s, m)
-	case strings.HasPrefix(content, "!mine "):
+	case "!mine", "!m":
 		handleMine(s, m)
-	case strings.HasPrefix(content, "!save"):
-		handleSave(s, m)
-	case strings.HasPrefix(content, "!vault"):
+	case "!vault", "!v":
 		handleVault(s, m)
-	case strings.HasPrefix(content, "!present"):
+	case "!present", "!p":
 		handlePresent(s, m)
-	case strings.HasPrefix(content, "!dissect"):
+	case "!dissect", "!d":
 		handleDissect(s, m)
-	case strings.HasPrefix(content, "!delete "):
-		handleDelete(s, m)
-	case strings.HasPrefix(content, "!clear "):
-		handleClear(s, m)
-	case strings.HasPrefix(content, "!search "):
-		handleSearch(s, m)
-	case strings.HasPrefix(content, "!add "):
-		handleAdd(s, m)
-	case strings.HasPrefix(m.Content, "!source"):
+	case "!source", "!s":
 		handleSource(s, m)
+
+	case "!save":
+		handleSave(s, m)
+	case "!add":
+		handleAdd(s, m)
+	case "!search":
+		handleSearch(s, m)
+	case "!delete":
+		handleDelete(s, m)
+	case "!clear":
+		handleClear(s, m)
 	}
 }

@@ -17,11 +17,12 @@ import (
 
 func handleMine(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// 1. Parse the input
-	input := strings.TrimSpace(strings.TrimPrefix(m.Content, "!mine"))
-	if input == "" {
+	parts := strings.SplitN(m.Content, " ", 2)
+	if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
 		s.ChannelMessageSend(m.ChannelID, "⚠️ Please provide a keyword. Usage: `!mine <keyword>` or `!mine <keyword> in <category>`")
 		return
 	}
+	input := strings.TrimSpace(parts[1])
 
 	keyword := input
 	category := "All" // Default to scraping everything if no category is specified

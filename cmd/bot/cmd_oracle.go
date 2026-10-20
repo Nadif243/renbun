@@ -12,7 +12,13 @@ import (
 )
 
 func handlePresent(s *discordgo.Session, m *discordgo.MessageCreate) {
-	targetText, err := resolveTargetText(m.Author.ID, strings.TrimPrefix(m.Content, "!present"))
+	parts := strings.SplitN(m.Content, " ", 2)
+	input := ""
+	if len(parts) == 2 {
+		input = parts[1]
+	}
+
+	targetText, err := resolveTargetText(m.Author.ID, input)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, "⚠️ "+err.Error())
 		return
@@ -40,7 +46,13 @@ func handlePresent(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 func handleDissect(s *discordgo.Session, m *discordgo.MessageCreate) {
-	targetText, err := resolveTargetText(m.Author.ID, strings.TrimPrefix(m.Content, "!dissect"))
+	parts := strings.SplitN(m.Content, " ", 2)
+	input := ""
+	if len(parts) == 2 {
+		input = parts[1]
+	}
+
+	targetText, err := resolveTargetText(m.Author.ID, input)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, "⚠️ "+err.Error())
 		return
