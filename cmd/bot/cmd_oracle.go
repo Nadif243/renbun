@@ -20,23 +20,29 @@ func handlePresent(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	targetText, err := resolveTargetText(m.Author.ID, input)
 	if err != nil {
+		s.MessageReactionAdd(m.ChannelID, m.ID, "⚠️")
 		s.ChannelMessageSend(m.ChannelID, "⚠️ "+err.Error())
 		return
 	}
 
-	// Send a loading state (Gemini takes 2-3 seconds)
-	loadingMsg, _ := s.ChannelMessageSend(m.ChannelID, "⏳ *The Oracle is peering into the syntax...*")
+	// 1. Instantly react with an hourglass
+	s.MessageReactionAdd(m.ChannelID, m.ID, "⏳")
 
 	ctx := context.Background()
 	res, err := oracle.Present(ctx, targetText)
 
-	// Delete loading message
-	s.ChannelMessageDelete(m.ChannelID, loadingMsg.ID)
+	// 2. Remove the hourglass when the Oracle returns
+	s.MessageReactionRemove(m.ChannelID, m.ID, "⏳", s.State.User.ID)
 
 	if err != nil {
+		// 3a. React with a warning on failure
+		s.MessageReactionAdd(m.ChannelID, m.ID, "⚠️")
 		s.ChannelMessageSend(m.ChannelID, "⚠️ Oracle failure: "+err.Error())
 		return
 	}
+
+	// 3b. React with a checkmark on success
+	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
 
 	embed := &discordgo.MessageEmbed{
 		Color:       0x950B10, // Dark Crimson
@@ -54,26 +60,31 @@ func handleDissect(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	targetText, err := resolveTargetText(m.Author.ID, input)
 	if err != nil {
+		s.MessageReactionAdd(m.ChannelID, m.ID, "⚠️")
 		s.ChannelMessageSend(m.ChannelID, "⚠️ "+err.Error())
 		return
 	}
 
-	loadingMsg, _ := s.ChannelMessageSend(m.ChannelID, "👁️ *The Oracle is dissecting the linguistics...*")
+	s.MessageReactionAdd(m.ChannelID, m.ID, "⏳")
 
 	ctx := context.Background()
 	res, err := oracle.Dissect(ctx, targetText)
 
-	s.ChannelMessageDelete(m.ChannelID, loadingMsg.ID)
+	s.MessageReactionRemove(m.ChannelID, m.ID, "⏳", s.State.User.ID)
 
 	if err != nil {
 		// Catch rate limits gracefully
 		if strings.Contains(err.Error(), "429") {
+			s.MessageReactionAdd(m.ChannelID, m.ID, "⚠️")
 			s.ChannelMessageSend(m.ChannelID, "⚠️ The Oracle is overwhelmed by requests. Please wait a minute and try again.")
 			return
 		}
+		s.MessageReactionAdd(m.ChannelID, m.ID, "⚠️")
 		s.ChannelMessageSend(m.ChannelID, "⚠️ Oracle failure: "+err.Error())
 		return
 	}
+
+	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
 
 	embed := &discordgo.MessageEmbed{
 		Title:       "👁️ Alchemical Dissection",
