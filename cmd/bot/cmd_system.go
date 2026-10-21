@@ -188,6 +188,58 @@ func handleSearch(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 func handleStateInterceptor(s *discordgo.Session, m *discordgo.MessageCreate) bool {
+	input := strings.ToLower(strings.TrimSpace(m.Content))
+
+	// --- 1. Text Navigation for Active Menus ---
+	// We iterate through the pagination cache to see if this user has an active menu open
+	var activeMsgID string
+	var activeState *PaginationState
+
+	paginationCache.Range(func(key, value interface{}) bool {
+		state := value.(*PaginationState)
+		if state.AuthorID == m.Author.ID {
+			activeMsgID = key.(string)
+			activeState = state
+			return false // Stop looping, we found their active menu
+		}
+		return true
+	})
+
+	if activeState != nil {
+		handled := false
+
+		// 1a. Handle "cancel"
+		if input == "cancel" {
+			s.ChannelMessageDelete(m.ChannelID, activeMsgID) // Delete the embed
+			paginationCache.Delete(activeMsgID)              // Clear the cache
+			handled = true
+		} else if input == "next" && activeState.Page < activeState.MaxPage {
+			activeState.Page++
+			handled = true
+		} else if input == "prev" && activeState.Page > 1 {
+			activeState.Page--
+			handled = true
+		} else if pageNum, err := strconv.Atoi(input); err == nil && pageNum >= 1 && pageNum <= activeState.MaxPage {
+			// Handle direct page jumping (e.g., typing "3")
+			activeState.Page = pageNum
+			handled = true
+		}
+
+		if handled {
+			// Purge the user's chat message instantly
+			s.ChannelMessageDelete(m.ChannelID, m.ID)
+
+			// If they didn't cancel, we need to rebuild and update the embed
+			if input != "cancel" {
+				if activeState.MenuType == "VaultOpen" {
+					updateVaultEmbed(s, m.ChannelID, activeMsgID, activeState)
+				}
+				// Can add else if activeState.MenuType == "VaultList" here later if implementation of paginate the dropdown is done
+			}
+			return true // We intercepted and handled the text
+		}
+	}
+
 	if state, ok := userState.Load(m.Author.ID); ok {
 		input := strings.TrimSpace(m.Content)
 
@@ -398,4 +450,45 @@ func handleStateInterceptor(s *discordgo.Session, m *discordgo.MessageCreate) bo
 		}
 	}
 	return false
+}
+
+func updateVaultEmbed(s *discordgo.Session, channelID string, msgID string, state *PaginationState) {
+	perPage := 10
+	start := (state.Page - 1) * perPage
+	end := start + perPage
+	if end > len(state.Sentences) {
+		end = len(state.Sentences)
+	}
+	pageItems := state.Sentences[start:end]
+
+	var descBuilder strings.Builder
+	for idx, text := range pageItems {
+		descBuilder.WriteString(fmt.Sprintf("**%d.** %s\n\n", start+idx+1, text))
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       fmt.Sprintf("📖 Vault Contents: 『 %s 』", state.VaultName),
+		Description: strings.TrimSpace(descBuilder.String()),
+		Color:       0x572E5B,
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("Page %d of %d • Total Fragments: %d", state.Page, state.MaxPage, len(state.Sentences)),
+		},
+	}
+
+	components := []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{Label: "⬅️", Style: discordgo.SecondaryButton, CustomID: "page_prev", Disabled: state.Page <= 1},
+				discordgo.Button{Label: "✖️", Style: discordgo.DangerButton, CustomID: "page_close"},
+				discordgo.Button{Label: "➡️", Style: discordgo.SecondaryButton, CustomID: "page_next", Disabled: state.Page >= state.MaxPage},
+			},
+		},
+	}
+
+	s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+		ID:         msgID,
+		Channel:    channelID,
+		Embeds:     &[]*discordgo.MessageEmbed{embed},
+		Components: &components,
+	})
 }
