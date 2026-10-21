@@ -13,6 +13,7 @@ import (
 )
 
 type PaginationState struct {
+	MenuType  string
 	AuthorID  string
 	VaultName string
 	Sentences []string
@@ -71,18 +72,73 @@ func handleVault(s *discordgo.Session, m *discordgo.MessageCreate) {
 		s.ChannelMessageSend(m.ChannelID, "📖 "+response)
 
 	case "list":
-		listData, err := db.ListVaults(m.Author.ID)
+		names, err := db.GetVaultNames(m.Author.ID)
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, "⚠️ Error reading the void: "+err.Error())
 			return
 		}
+
+		// If no vaults exist, just send a transient text menu
+		if len(names) == 0 {
+			embed := &discordgo.MessageEmbed{
+				Title:       "🔍 Your Bound Grimoires",
+				Color:       0x572E5B,
+				Description: "*You have forged no grimoires yet.*",
+			}
+			SendTransientMenu(s, m.ChannelID, m.Author.ID, "vault_list", embed)
+			return
+		}
+
+		// Build the Dropdown Options (Discord limits this to 25 options per menu)
+		var options []discordgo.SelectMenuOption
+		var descBuilder strings.Builder
+		for i, name := range names {
+			descBuilder.WriteString(fmt.Sprintf("**%d.** 『 %s 』\n", i+1, name))
+			options = append(options, discordgo.SelectMenuOption{
+				Label: name,
+				Value: name, // This is the exact string passed to the interaction router
+				Emoji: &discordgo.ComponentEmoji{Name: "📖"},
+			})
+		}
+
 		embed := &discordgo.MessageEmbed{
 			Title:       "🔍 Your Bound Grimoires",
 			Color:       0x572E5B,
-			Description: listData,
+			Description: strings.TrimSpace(descBuilder.String()),
 		}
-		// menuKey is "vault_list". It will supersede any older vault lists!
-		SendTransientMenu(s, m.ChannelID, m.Author.ID, "vault_list", embed)
+		// Attach the Dropdown Component
+		components := []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.SelectMenu{
+						CustomID:    "vault_select",
+						Placeholder: "Select a Grimoire to open...",
+						Options:     options,
+					},
+				},
+			},
+		}
+
+		// Send it and manually trigger the supersede wipe so it doesn't fade if we open it
+		msg, err := s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
+			Embeds:     []*discordgo.MessageEmbed{embed},
+			Components: components,
+		})
+		if err == nil {
+			// Wipe older lists
+			cacheKey := m.Author.ID + "_vault_list"
+			if oldMsgID, ok := activeMenus.Load(cacheKey); ok {
+				s.ChannelMessageDelete(m.ChannelID, oldMsgID.(string))
+			}
+			activeMenus.Store(cacheKey, msg.ID)
+
+			// Store it so the interaction router can listen for clicks!
+			paginationCache.Store(msg.ID, &PaginationState{
+				MenuType: "VaultList",
+				AuthorID: m.Author.ID,
+			})
+		}
+		return
 
 	case "open":
 		if len(args) == 2 {
@@ -220,6 +276,7 @@ func handleVault(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		// 3. Save the state so the buttons know what to flip
 		paginationCache.Store(msg.ID, &PaginationState{
+			MenuType:  "VaultOpen",
 			AuthorID:  m.Author.ID,
 			VaultName: vaultName,
 			Sentences: sentences,

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -119,6 +120,99 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			},
 		})
 		return
+	}
+
+	// --- Handle the Dropdown Morph ---
+	if i.MessageComponentData().ComponentType == discordgo.SelectMenuComponent {
+		if i.MessageComponentData().CustomID == "vault_select" {
+			vaultName := i.MessageComponentData().Values[0] // The value they clicked
+
+			// 1. Fetch the vault contents
+			sentences, err := db.OpenVault(state.AuthorID, vaultName)
+			if err != nil {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "⚠️ Failed to open vault.",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				return
+			}
+
+			// Handle empty vault case cleanly
+			if len(sentences) == 0 {
+				emptyEmbed := &discordgo.MessageEmbed{
+					Title:       fmt.Sprintf("📖 Vault Contents: 『 %s 』", vaultName),
+					Description: "*This vault is currently empty.*",
+					Color:       0x572E5B,
+				}
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseUpdateMessage,
+					Data: &discordgo.InteractionResponseData{
+						Embeds:     []*discordgo.MessageEmbed{emptyEmbed},
+						Components: []discordgo.MessageComponent{}, // Wipe the dropdown
+					},
+				})
+				return
+			}
+
+			// 2. Pagination Math (Defaulting to Page 1)
+			perPage := 10
+			maxPage := int(math.Ceil(float64(len(sentences)) / float64(perPage)))
+			if maxPage < 1 {
+				maxPage = 1
+			}
+			page := 1
+			start := 0
+			end := perPage
+			if end > len(sentences) {
+				end = len(sentences)
+			}
+			displaySlice := sentences[start:end]
+
+			// 3. Build Description & Embed
+			var descBuilder strings.Builder
+			for idx, text := range displaySlice {
+				descBuilder.WriteString(fmt.Sprintf("**%d.** %s\n\n", start+idx+1, text))
+			}
+			morphEmbed := &discordgo.MessageEmbed{
+				Title:       fmt.Sprintf("📖 Vault Contents: 『 %s 』", vaultName),
+				Description: strings.TrimSpace(descBuilder.String()),
+				Color:       0x572E5B,
+				Footer: &discordgo.MessageEmbedFooter{
+					Text: fmt.Sprintf("Page %d of %d • Total Fragments: %d", page, maxPage, len(sentences)),
+				},
+			}
+
+			// 4. Build the Navigation Buttons
+			morphComponents := []discordgo.MessageComponent{
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.Button{Label: "⬅️", Style: discordgo.SecondaryButton, CustomID: "page_prev", Disabled: page <= 1},
+						discordgo.Button{Label: "✖️", Style: discordgo.DangerButton, CustomID: "page_close"},
+						discordgo.Button{Label: "➡️", Style: discordgo.SecondaryButton, CustomID: "page_next", Disabled: page >= maxPage},
+					},
+				},
+			}
+
+			// 5. Update State in Memory so the buttons work immediately
+			state.MenuType = "VaultOpen"
+			state.VaultName = vaultName
+			state.Sentences = sentences
+			state.Page = page
+			state.MaxPage = maxPage
+
+			// 6. Instantly transform the message
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseUpdateMessage,
+				Data: &discordgo.InteractionResponseData{
+					Embeds:     []*discordgo.MessageEmbed{morphEmbed},
+					Components: morphComponents,
+				},
+			})
+		}
+		return // Exit early since we handled the Select Menu
 	}
 
 	customID := i.MessageComponentData().CustomID

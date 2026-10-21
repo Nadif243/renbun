@@ -307,6 +307,7 @@ func handleStateInterceptor(s *discordgo.Session, m *discordgo.MessageCreate) bo
 			})
 			if err == nil {
 				paginationCache.Store(msg.ID, &PaginationState{
+					MenuType:  "VaultOpen",
 					AuthorID:  m.Author.ID,
 					VaultName: vaultName,
 					Sentences: sentences,

@@ -104,3 +104,28 @@ func ResolveVaultInput(discordID, input string) (string, error) {
 
 	return input, nil
 }
+
+// GetVaultNames retrieves a raw slice of vault names for UI menus
+func GetVaultNames(discordID string) ([]string, error) {
+	query := "SELECT name FROM vaults WHERE owner_id = ? ORDER BY created_at ASC"
+	rows, err := DB.Query(query, discordID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		names = append(names, name)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return names, nil
+}
