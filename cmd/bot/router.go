@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +25,9 @@ type VaultSession struct {
 var userState sync.Map
 var mineCache sync.Map
 var vaultCache sync.Map
+
+// activeMenus stores the Message ID of active transient menus to supersede them
+var activeMenus sync.Map
 
 // --- THE SWITCHBOARD ---
 // This replaces your old messageCreate. It acts as a traffic director.
@@ -189,4 +193,43 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Components: newComponents,
 		},
 	})
+}
+
+// SendTransientMenu sends an embed that supersedes older versions and self-destructs after 90s
+func SendTransientMenu(s *discordgo.Session, channelID string, authorID string, menuKey string, embed *discordgo.MessageEmbed) {
+	cacheKey := authorID + "_" + menuKey
+
+	// 1. Supersede: If this user already has this menu open, delete the old one
+	if oldMsgID, ok := activeMenus.Load(cacheKey); ok {
+		err := s.ChannelMessageDelete(channelID, oldMsgID.(string))
+		if err != nil {
+			log.Printf("[Cleanup Error] Failed to delete old menu: %v\n", err)
+		}
+	}
+
+	// 2. Send the new menu
+	msg, err := s.ChannelMessageSendEmbed(channelID, embed)
+	if err != nil {
+		log.Printf("[Send Error] Failed to send new menu: %v\n", err)
+		return
+	}
+
+	// 3. Cache the new message ID
+	activeMenus.Store(cacheKey, msg.ID)
+
+	// 4. The 90-Second Fade: Launch a background timer to delete it
+	go func(mID string) {
+		time.Sleep(90 * time.Second)
+		// Only attempt API deletion if this is STILL the active menu in the cache
+		if currentID, ok := activeMenus.Load(cacheKey); ok && currentID.(string) == mID {
+			err := s.ChannelMessageDelete(channelID, mID)
+
+			// Ignore 10008 (Unknown Message) errors in case the user manually deleted it
+			if err != nil && !strings.Contains(err.Error(), "10008") {
+				log.Printf("[Fade Error] Failed to delete expired menu: %v\n", err)
+			}
+
+			activeMenus.Delete(cacheKey)
+		}
+	}(msg.ID)
 }

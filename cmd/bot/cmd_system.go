@@ -131,7 +131,7 @@ func handleSearch(s *discordgo.Session, m *discordgo.MessageCreate) {
 			Description: "*No fragments found containing this keyword in any grimoire.*",
 			Color:       0x8B9EB6,
 		}
-		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+		SendTransientMenu(s, m.ChannelID, m.Author.ID, "search_empty", embed)
 		return
 	}
 
@@ -184,12 +184,15 @@ func handleSearch(s *discordgo.Session, m *discordgo.MessageCreate) {
 		},
 	}
 
-	s.ChannelMessageSendEmbed(m.ChannelID, embed)
+	SendTransientMenu(s, m.ChannelID, m.Author.ID, "search_result", embed)
 }
 
 func handleStateInterceptor(s *discordgo.Session, m *discordgo.MessageCreate) bool {
 	if state, ok := userState.Load(m.Author.ID); ok {
 		input := strings.TrimSpace(m.Content)
+
+		// Instantly purge the user's chat message to keep the channel clean
+		s.ChannelMessageDelete(m.ChannelID, m.ID)
 
 		// Global cancel catch
 		if input == "cancel" {
@@ -238,7 +241,7 @@ func handleStateInterceptor(s *discordgo.Session, m *discordgo.MessageCreate) bo
 					Description: "*This vault is currently empty.*",
 					Color:       0x572E5B, // Deep Violet
 				}
-				s.ChannelMessageSendEmbed(m.ChannelID, embed)
+				SendTransientMenu(s, m.ChannelID, m.Author.ID, "vault_empty_await", embed)
 				return true
 			}
 

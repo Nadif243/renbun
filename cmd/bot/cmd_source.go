@@ -44,7 +44,7 @@ func handleSource(s *discordgo.Session, m *discordgo.MessageCreate) {
 			Description: description.String(),
 			Color:       0x8B9EB6, // Heather Blue
 		}
-		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+		SendTransientMenu(s, m.ChannelID, m.Author.ID, "source_list", embed)
 
 	case "add":
 		if len(args) < 4 {

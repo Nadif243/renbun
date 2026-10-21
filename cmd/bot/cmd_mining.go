@@ -187,7 +187,7 @@ func handleSave(s *discordgo.Session, m *discordgo.MessageCreate) {
 			Color:       0x572E5B, // Deep Violet
 			Description: listData + "\n\n*Reply with the name or index number (or type `cancel`).*",
 		}
-		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+		SendTransientMenu(s, m.ChannelID, m.Author.ID, "save_prompt", embed)
 		return
 	}
 

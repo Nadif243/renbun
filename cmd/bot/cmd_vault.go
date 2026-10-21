@@ -45,7 +45,7 @@ func handleVault(s *discordgo.Session, m *discordgo.MessageCreate) {
 				"`!vault open <name or index>` - Inspect a vault's contents\n" +
 				"`!vault delete <name or index>` - Incinerate a collection",
 		}
-		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+		SendTransientMenu(s, m.ChannelID, m.Author.ID, "vault", embed)
 		return
 	}
 
@@ -81,7 +81,8 @@ func handleVault(s *discordgo.Session, m *discordgo.MessageCreate) {
 			Color:       0x572E5B,
 			Description: listData,
 		}
-		s.ChannelMessageSendEmbed(m.ChannelID, embed)
+		// menuKey is "vault_list". It will supersede any older vault lists!
+		SendTransientMenu(s, m.ChannelID, m.Author.ID, "vault_list", embed)
 
 	case "open":
 		if len(args) == 2 {
@@ -99,7 +100,7 @@ func handleVault(s *discordgo.Session, m *discordgo.MessageCreate) {
 				Color:       0x572E5B,
 				Description: listData + "\n\n*Reply with the name or index number (or type `cancel`).*",
 			}
-			s.ChannelMessageSendEmbed(m.ChannelID, embed)
+			SendTransientMenu(s, m.ChannelID, m.Author.ID, "vault_open_prompt", embed)
 			return
 		}
 
@@ -143,7 +144,7 @@ func handleVault(s *discordgo.Session, m *discordgo.MessageCreate) {
 				Description: "*This vault is currently empty.*",
 				Color:       0x572E5B,
 			}
-			s.ChannelMessageSendEmbed(m.ChannelID, embed)
+			SendTransientMenu(s, m.ChannelID, m.Author.ID, "vault_empty", embed)
 			return
 		}
 
@@ -242,7 +243,8 @@ func handleVault(s *discordgo.Session, m *discordgo.MessageCreate) {
 				Color:       0x572E5B,
 				Description: listData + "\n\n*Reply with the name or index number (or type `cancel`).*",
 			}
-			s.ChannelMessageSendEmbed(m.ChannelID, embed)
+			// menuKey is "vault_clear".
+			SendTransientMenu(s, m.ChannelID, m.Author.ID, "vault_delete_prompt", embed)
 			return
 		}
 
