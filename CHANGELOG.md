@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-21
+### Added
+- **Exact-Match Command Aliases:** Introduced fast shortcuts (`!v`, `!m`, `!d`, `!p`) with dynamic `SplitN` argument parsing.
+- **Oracle Status Reactions:** Added instant `⏳`, `✅`, and `⚠️` emoji feedback to track LLM execution states.
+- **Native UI Buttons**: Upgraded pagination from just direct command to native Discord Buttons (`⬅️`, `✖️`, `➡️`) featuring dynamic boundary disabling.
+- **Transient UI Menus:** Implemented a global 90-second expiration fade and supercede wiping system for all non-essential bot prompts to maintain chat cleanliness.
+- **Conversational Text Navigation:** Users can now seamlessly type `next`, `prev`, `cancel`, or a specific page number to navigate active menus without clicking.
+- **Grimoire Dropdowns**: Upgraded `!v list` to utilize Discord String Select Menus that seamlessly morph into paginated viewers.
+- **Prompt Purging:** Added a state interceptor that instantly deletes user command inputs during menu navigation (requires "Manage Messages" server permission).
+
+### Changed
+- **Oracle-Miner Bridge:** Updated `resolveTargetText` to prioritize the transient mining cache, enabling a direct `!mine` -> `!dissect`/`!present` pipelines.
+
+### Fixed
+- Reverted vault sorting to `ASC` to ensure dropdown index matches the `!v open <index>` sequence.
+- Resolved Go compiler `rune` type mismatch by utilizing `db.GetVaultNames` slice extraction.
+- Fixed SQL linter warnings by adding final `rows.Err()` validation checks in database loops.
+- Fixed 404 (Unknown Message) error logging caused by manual or superseded message deletions during the transient fade cycle.
+
 ## [1.1.0] - 2026-10-20
 
 ### Added
@@ -42,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SQLite-backed grimoire engine for saving, searching, and managing mined sentences.
 - Multi-threaded worker pool for high-speed sentence extraction.
 
-[Unreleased]: https://github.com/Nadif243/renbun/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/Nadif243/renbun/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/Nadif243/renbun/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Nadif243/renbun/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Nadif243/renbun/releases/tag/v1.0.0

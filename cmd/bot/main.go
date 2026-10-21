@@ -66,7 +66,7 @@ func main() {
 	})
 
 	// 7. Keep Alive & Graceful Shutdown
-	fmt.Println("Renbun Engine (錬文) is online. Press CTRL-C to exit.")
+	fmt.Println("Renbun Engine (錬文) v1.2.0 is online. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
