@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"math/rand/v2"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -218,29 +216,4 @@ func handleSave(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	s.ChannelMessageSend(m.ChannelID, strings.Join(successLogs, "\n"))
-}
-
-// Helper function to read URLs from our text file
-func loadTargets(filename string) []string {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil
-	}
-	defer file.Close()
-
-	var urls []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line != "" && strings.HasPrefix(line, "http") {
-			urls = append(urls, line)
-		}
-	}
-
-	// Check if the scanner crashed during the loop
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Warning: Error reading target.txt:", err)
-	}
-
-	return urls
 }
