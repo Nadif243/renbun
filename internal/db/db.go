@@ -19,14 +19,9 @@ var DB *sql.DB
 // InitDB establishes the crucible and constructs the structural geometry (tables).
 func InitDB(filepath string) {
 	var err error
-	DB, err = sql.Open("sqlite", filepath)
+	DB, err = sql.Open("sqlite", "file:"+filepath+"?_pragma=foreign_keys(1)")
 	if err != nil {
 		log.Fatal("Critical: Failed to ignite the database crucible:", err)
-	}
-	// Enforce foreign key constraints for cascading deletes
-	_, err = DB.Exec("PRAGMA foreign_keys = ON;")
-	if err != nil {
-		log.Fatal("Critical: Failed to enforce database constraints:", err)
 	}
 
 	createTables := `

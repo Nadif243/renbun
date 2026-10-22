@@ -58,13 +58,27 @@ func ListVaults(discordID string) (string, error) {
 
 // DeleteVault incinerates a specific collection. If it has sentences, they are destroyed.
 func DeleteVault(discordID, vaultName string) (string, error) {
-	// Execute the deletion
-	res, err := DB.Exec("DELETE FROM vaults WHERE owner_id = ? AND name = ?", discordID, vaultName)
+	tx, err := DB.Begin()
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback() // harmless no-op once Commit has succeeded
+
+	// 1. Burn the sentences first (children before parent).
+	// IN rather than = in case two vaults of this user ever share a name.
+	_, err = tx.Exec(`
+		DELETE FROM sentences
+		WHERE vault_id IN (SELECT id FROM vaults WHERE owner_id = ? AND name = ?)`,
+		discordID, vaultName)
 	if err != nil {
 		return "", err
 	}
 
-	// Check if the vault actually existed
+	// 2. Then the vault itself.
+	res, err := tx.Exec("DELETE FROM vaults WHERE owner_id = ? AND name = ?", discordID, vaultName)
+	if err != nil {
+		return "", err
+	}
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
 		return "", err
@@ -73,6 +87,9 @@ func DeleteVault(discordID, vaultName string) (string, error) {
 		return "", fmt.Errorf("vault 『%s』 not found or you do not own it", vaultName)
 	}
 
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
 	return fmt.Sprintf("🔥 Vault 『%s』 and all its contents have been incinerated.", vaultName), nil
 }
 
