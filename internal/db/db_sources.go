@@ -3,7 +3,15 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
+	"strings"
 )
+
+// CategoryInfo describes one source category for list menus.
+type CategoryInfo struct {
+	Name  string
+	Count int
+}
 
 // SeedDefaultSources checks if the table is empty and injects the baseline domains.
 func SeedDefaultSources() error {
@@ -161,25 +169,75 @@ func RemoveSource(category string, index int) error {
 	return err
 }
 
-// ListSources groups URLs by category for the Discord embed.
-func ListSources() (map[string][]string, error) {
-	rows, err := DB.Query("SELECT category, url FROM sources ORDER BY category ASC, id ASC")
+// ListCategories returns every category with its target count, sorted alphabetically
+// (case-insensitive) so the numbers shown to the user never reshuffle between calls.
+func ListCategories() ([]CategoryInfo, error) {
+	rows, err := DB.Query(`
+		SELECT category, COUNT(*)
+		FROM sources
+		GROUP BY category
+		ORDER BY category COLLATE NOCASE ASC, category ASC`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	results := make(map[string][]string)
+	var cats []CategoryInfo
 	for rows.Next() {
-		var cat, url string
-		if err := rows.Scan(&cat, &url); err != nil {
+		var c CategoryInfo
+		if err := rows.Scan(&c.Name, &c.Count); err != nil {
 			return nil, err
 		}
-		results[cat] = append(results[cat], url)
+		cats = append(cats, c)
 	}
 
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return results, nil
+	return cats, nil
+}
+
+// ListCategoryUrls returns a category's URLs in the exact order RemoveSource counts them
+// (oldest first), so the index shown to the user is the index RemoveSource expects.
+func ListCategoryUrls(category string) ([]string, error) {
+	rows, err := DB.Query("SELECT url FROM sources WHERE category = ? ORDER BY id ASC", category)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var urls []string
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, err
+		}
+		urls = append(urls, u)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return urls, nil
+}
+
+// ResolveCategoryInput turns an index from !source list ("2") or a category name
+// (any letter case) into the stored category name.
+func ResolveCategoryInput(input string) (string, error) {
+	input = strings.TrimSpace(input)
+
+	cats, err := ListCategories()
+	if err != nil {
+		return "", err
+	}
+
+	if idx, convErr := strconv.Atoi(input); convErr == nil && idx >= 1 && idx <= len(cats) {
+		return cats[idx-1].Name, nil
+	}
+	for _, c := range cats {
+		if strings.EqualFold(c.Name, input) {
+			return c.Name, nil
+		}
+	}
+	return "", fmt.Errorf("no category matches '%s' (use a name or an index from `!source list`)", input)
 }

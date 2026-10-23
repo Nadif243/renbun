@@ -45,6 +45,7 @@ func handleHelp(s *discordgo.Session, m *discordgo.MessageCreate) {
 			{
 				Name: "🌐 Target Domains (Sources)",
 				Value: "`!source list`\nView your active domain categories.\n\n" +
+					"`!source open <category> [page]`\nList a category's targets (name or number).\n\n" +
 					"`!source add <category> <url>`\nInject a new scraping target.\n\n" +
 					"`!source remove <category> <index>`\nRemove a target from a category.",
 				Inline: true,
