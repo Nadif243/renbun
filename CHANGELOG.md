@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `!source open <category> [page]` lists the targets inside a category, numbered with the index `!source remove` expects. The category can be given by name or by its number from `!source list`.
+
+### Changed
+- `!source list` now shows categories in a fixed alphabetical order, so the numbers no longer reshuffle between calls.
+- `!source remove` accepts a category number as well as its name.
+
+### Removed
+- Unused `loadTargets` helper left over from the `target.txt` era.
+
+### Fixed
+- Deleting a grimoire that still contains fragments no longer fails with a foreign key error; `!vault delete` now removes the grimoire together with all of its fragments, leaving no orphaned data behind.
+- `!mine <keyword> in <category>` now matches category names regardless of letter case, like `!source` (`in it` finds `IT`, and `in all` mines every source).
+
 ## [1.2.0] - 2026-10-21
+
 ### Added
 - **Exact-Match Command Aliases:** Introduced fast shortcuts (`!v`, `!m`, `!d`, `!p`) with dynamic `SplitN` argument parsing.
 - **Oracle Status Reactions:** Added instant `⏳`, `✅`, and `⚠️` emoji feedback to track LLM execution states.

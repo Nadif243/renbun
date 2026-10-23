@@ -11,13 +11,20 @@ Renbun was engineered to automate the extraction of native Japanese sentences fr
 * **The Orchestrator:** A modular Go-based command router that safely isolates domain logic (Mining, Vaults, System) and manages concurrent worker pools to prevent resource exhaustion.
 * **The Extraction:** DOM parsing utilizing `goquery` with automatic Shift_JIS/EUC-JP character encoding decoding and Furigana stripping.
 * **The Grimoire Engine (DB):** A relational SQLite architecture managing robust CRUD operations, paginated caching, and persistent user vaults.
-* **The Oracle (LLM):** Direct integration with Gemini 3.5 Flash Lite and 3.6 Flash for high-speed morphological parsing, contextual translation, and JLPT analysis.
+* **The Oracle (LLM):** Direct integration with Gemini 3.5 Flash Lite for high-speed morphological parsing, contextual translation, and JLPT analysis.
 
 ### 🚀 **Core Commands**
 **🔍 Scrying & Acquisition**
-* `!mine <keyword>` – Triggers the distributed worker pool across `target.txt`, returning refined immersion sentences.
+* `!mine <keyword> [in <category>]` – Triggers the distributed worker pool across your configured sources (or a single category), returning refined immersion sentences.
 * `!save <indices> to <vault>` – Binds mined fragments into a persistent grimoire.
 * `!add <vault> <sentence>` – Manually injects a raw sentence into a grimoire.
+
+**🌐 Target Domains (Sources)**
+* `!source list` – View your active domain categories, numbered and sorted alphabetically.
+* `!source open <category> [page]` – List the targets inside a category, numbered with the index `!source remove` expects.
+* `!source add <category> <url>` – Inject a new scraping target; a new category name creates the category.
+* `!source remove <category> <index>` – Remove a target from a category.
+* `open` and `remove` accept a category's name (any letter case) or its number from `!source list`.
 
 **📖 Grimoire Management**
 * `!vault list` | `!vault create <name>` | `!vault delete <name>` – Manage your core database vaults.

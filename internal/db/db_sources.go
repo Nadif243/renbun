@@ -109,15 +109,16 @@ func AddSource(category, url string) error {
 	return err
 }
 
-// FetchUrls retrieves URLs for a specific category, or all URLs if category is "General".
+// FetchUrls retrieves URLs for a category (matched case-insensitively), or all URLs for "All"/"General".
 func FetchUrls(category string) ([]string, error) {
 	var rows *sql.Rows
 	var err error
 
-	if category == "" || category == "General" || category == "All" {
+	if category == "" || strings.EqualFold(category, "General") || strings.EqualFold(category, "All") {
 		rows, err = DB.Query("SELECT url FROM sources")
 	} else {
-		rows, err = DB.Query("SELECT url FROM sources WHERE category = ?", category)
+		// NOCASE so "!mine x in it" finds the "IT" category, the same way !source does
+		rows, err = DB.Query("SELECT url FROM sources WHERE category COLLATE NOCASE = ?", category)
 	}
 
 	if err != nil {
